@@ -18,3 +18,8 @@ core/CMakeCache.txt
 core/models/CMakeCache.txt
 web/CMakeCache.txt
 
+core/libcoreLib.a
+core/models/libmodelsLib.a
+web/libwebLib.a
+
+public/docBot.wt
