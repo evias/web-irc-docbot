@@ -13,13 +13,11 @@
  **/
 
 #include <Wt/WApplication>
-#include <Wt/WContainerWidget>
-#include <Wt/WPushButton>
-#include <Wt/WString>
-
 #include <Wt/Dbo/Types>
+#include <boost/shared_ptr.hpp>
 
 #include "core/models/model.hpp"
+#include "web/interface.hpp"
 
 namespace evias {
 
@@ -29,6 +27,9 @@ namespace evias {
     public:
         application(const Wt::WEnvironment&);
         ~application();
+
+    private:
+        boost::shared_ptr<evias::interface> view_;
     };
 
 };

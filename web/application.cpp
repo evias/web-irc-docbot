@@ -1,12 +1,12 @@
 /**
  * @file : bootstrap.cpp
- * @package :   eVias' codeReview
+ * @package :   eVias' docBot
  * @author :    Grégory Saive
  * @copyright : © 2012 Grégory Saive
  * @license :   GNU/GPL 3.0
  *
  * @brief
- * implementation of the class application, bootstrap the codeReview
+ * implementation of the class application, bootstrap the docBot
  * application run. This class configures the session of the user.
  * No matter if the user is a logged in user or not, there will be
  * one instance of this class available for him/her.
@@ -14,8 +14,6 @@
 
 #include "application.hpp"
 
-#include <Wt/WText>
-#include <Wt/WMessageBox>
 #include <Wt/Dbo/backend/Postgres>
 #include <Wt/Dbo/Session>
 
@@ -39,6 +37,8 @@ application::application(const Wt::WEnvironment& env)
     model::getSession().mapClass<account_traits::account_type>("account_type");
 
     setTitle("docBot");
+
+    view_ = evias::interface::create(root());
 }
 
 application::~application()
