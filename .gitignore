@@ -23,3 +23,6 @@ core/models/libmodelsLib.a
 web/libwebLib.a
 
 public/docBot.wt
+
+#vim swap files ignore
+*.swp
