@@ -50,6 +50,7 @@ void bot::init()
     irc_.get()->reply_loop(__t::MSG_ENDMOTD);
 
     irc_.get()->irc_channel_join("#evias.be");
+    irc_.get()->reply_loop(__t::MSG_ENDLIST + "|" + __t::MSG_INVALIDCHAN);
 }
 
 ircClient* bot::get_irc()

@@ -263,9 +263,10 @@ int ircClient::reply_loop(string end_msg)
             return 1;
 
         buffer[ret_len] = '\0';
-        split_response(buffer);
 
         cout << "GOT: [" << buffer << "]" << endl;
+
+        // XXX split_response(buffer);
 
         if ((bool) end_msg.size()
             && __u::in_vector<string>(end_msg, end_codes_))

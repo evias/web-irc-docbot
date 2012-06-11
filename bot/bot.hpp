@@ -1,7 +1,8 @@
-#ifndef __EVIAS_DOCBOT_BOT_DOCUMENTOR__
-#define __EVIAS_DOCBOT_BOT_DOCUMENTOR__
+#ifndef __EVIAS_DOCBOT_BOT_BOT__
+#define __EVIAS_DOCBOT_BOT_BOT__
 
 #include "irc_connection.hpp"
+#include "commands.hpp"
 #include <boost/shared_ptr.hpp>
 #include <memory>
 
