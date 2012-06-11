@@ -20,6 +20,7 @@
 #include <Wt/Dbo/Types>
 
 #include "models/model.hpp"
+#include "bot/documentor.hpp"
 
 namespace evias {
 
@@ -28,8 +29,6 @@ namespace evias {
     public:
         bootstrap();
         virtual ~bootstrap();
-
-        void setOptions(int, char**);
 
     private:
 
