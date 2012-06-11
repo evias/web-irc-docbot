@@ -13,7 +13,6 @@
  **/
 
 #include "bootstrap.hpp"
-#include "bot/documentor.hpp"
 
 #include <cctype>
 #include <cstdio>
@@ -28,8 +27,6 @@ using namespace evias;
 bootstrap::bootstrap()
     : quiet_mode_(false), verbose_mode_(true)
 {
-    // initialize bot
-    documentor::get();
 }
 
 bootstrap::~bootstrap()

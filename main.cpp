@@ -11,7 +11,7 @@
 
 #include "core/bootstrap.hpp"
 #include "web/application.hpp"
-#include "bot/documentor.hpp"
+#include "bot/bot.hpp"
 
 Wt::WApplication *createApplication(const Wt::WEnvironment& env)
 {
@@ -20,10 +20,8 @@ Wt::WApplication *createApplication(const Wt::WEnvironment& env)
 
 void* start_irc_thread(void* data)
 {
-    using evias::documentor;
-
-    documentor::pget()
-        ->init_bot_features();
+    evias::bot::get()
+        .init();
 
     return data;
 }
