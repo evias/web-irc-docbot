@@ -256,30 +256,6 @@ int ircClient::reply_loop(string end_msg)
         return 1;
     }
 
-/*
- * XXX enable listening => IDENTD requiring servers (ssh auth)
- *
-    int sockfd, newfd;
-    struct sockaddr_in my_addr,
-                       serv_addr;
-
-    socklen_t addr_size;
-
-    sockfd = socket (AF_INET, SOCK_STREAM, 0);
-
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(22);
-    my_addr.sin_addr.s_addr = INADDR_ANY;
-    bzero (&(my_addr.sin_zero), 8);
-
-    bind (sockfd, (struct sockaddr*) &my_addr, sizeof(struct sockaddr));
-
-    listen (sockfd, SOMAXCONN);
-
-    addr_size = sizeof( struct sockaddr_in );
-    newfd = accept (sockfd, (struct sockaddr*)&serv_addr, &addr_size);
-*/
-
     while (1) {
         ret_len = recv(conn_.irc_socket, buffer, 1023, 0 );
 
