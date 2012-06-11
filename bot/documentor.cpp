@@ -44,7 +44,7 @@ documentor* documentor::pget()
     return instance_;
 }
 
-void documentor::loop()
+void documentor::init_bot_features()
 {
     irc_.get()->connect(config_);
     irc_.get()->reply_loop(__t::MSG_ENDMOTD);

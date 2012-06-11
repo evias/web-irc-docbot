@@ -25,7 +25,7 @@ namespace evias {
         static documentor& get();
         static documentor* pget();
 
-        void loop();
+        void init_bot_features();
         ircClient* get_irc();
 
     private:

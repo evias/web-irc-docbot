@@ -23,7 +23,7 @@ void* start_irc_thread(void* data)
     using evias::documentor;
 
     documentor::pget()
-        ->loop();
+        ->init_bot_features();
 
     return data;
 }
