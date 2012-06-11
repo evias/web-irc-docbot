@@ -305,3 +305,15 @@ void ircClient::parse_response(char *data)
     //if (regex_match(data, match_irc_resp, "^\\: ([A-Za-z0-9]+) "))
 }
 
+int ircClient::irc_channel_join(string chan)
+{
+    stringstream buf;
+    buf << "JOIN " << chan
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+
+    return 0;
+}
+
+
