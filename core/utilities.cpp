@@ -2,6 +2,7 @@
 
 using namespace std;
 using namespace evias;
+using namespace utilities;
 
 string vector_join (vector<string> input, string delim)
 {

@@ -11,16 +11,32 @@
 
 #include "core/bootstrap.hpp"
 #include "web/application.hpp"
+#include "bot/documentor.hpp"
 
 Wt::WApplication *createApplication(const Wt::WEnvironment& env)
 {
     return new evias::application(env);
 }
 
+void* start_irc_thread(void* data)
+{
+    using evias::documentor;
+
+    documentor::pget()
+        ->loop();
+
+    return data;
+}
+
+
 int main(int argc, char **argv)
 {
     using evias::bootstrap;
     bootstrap* b = new bootstrap();
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, start_irc_thread, NULL);
+    pthread_join(thread, NULL);
 
     return Wt::WRun(argc, argv, &createApplication);
 }

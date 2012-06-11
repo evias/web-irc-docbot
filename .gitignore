@@ -21,6 +21,7 @@ web/CMakeCache.txt
 core/libcoreLib.a
 core/models/libmodelsLib.a
 web/libwebLib.a
+bot/libbotLib.a
 
 public/docBot.wt
 
