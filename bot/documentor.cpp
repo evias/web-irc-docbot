@@ -7,20 +7,20 @@ documentor* documentor::instance_ = NULL;
 
 documentor::documentor()
 {
-    config_.server = "irc.freenode.net";
-    config_.port   = 6667;
-    config_.nick   = "eVias_docBot";
-    config_.user   = "noName";
-    config_.name   = "developing@eVias.be";
+    config_ = __t::irc_conn_config::create(
+        "irc.freenode.net",
+        6667,
+        "eVias_docBot",
+        "noName",
+        "developing@eVias.be");
 
     irc_ = boost::shared_ptr<ircClient>(new ircClient());
-    instance_ = (documentor*)(this);
 }
 
 documentor::documentor(documentor* p)
 {
     if (instance_)
-        throw std::exception();
+        throw std::logic_error(string("Singleton instance already created."));
 
    instance_ = p;
 }
@@ -33,11 +33,14 @@ documentor::~documentor()
 
 documentor& documentor::get()
 {
-    return *instance_;
+    return *(pget());
 }
 
 documentor* documentor::pget()
 {
+    if (! instance_)
+        instance_ = new documentor;
+
     return instance_;
 }
 

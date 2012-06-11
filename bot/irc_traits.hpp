@@ -51,6 +51,23 @@ namespace irc_traits {
         string user;
         string name;
         string pass;
+
+        static irc_conn_config create(string s, int p, string n, string u, string na, string pa = "")
+        {
+            irc_conn_config conf;
+            conf.server = s;
+            conf.port   = p;
+            conf.nick   = n;
+            conf.user   = u;
+            conf.name   = na;
+            conf.pass   = pa;
+            conf.connected   = false;
+            conf.nick_sent   = false;
+            conf.pass_sent   = false;
+            conf.user_sent   = false;
+            conf.auth_server = false;
+            return conf;
+        };
     };
 
     struct connection {
