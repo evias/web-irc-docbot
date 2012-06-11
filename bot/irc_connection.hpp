@@ -49,6 +49,17 @@ namespace evias {
             std::string get_last_treated();
             void        log(std::string);
 
+            // IRC protocol implementation
+            int irc_notice(std::string, std::string);
+            int irc_privmsg(std::string, std::string);
+            int irc_nick(std::string);
+            int irc_channel_isop(std::string, std::string);
+            int irc_channel_isvoice(std::string, std::string);
+            int irc_channel_join(std::string);
+            int irc_channel_part(std::string);
+            int irc_channel_kick(std::string, std::string, std::string = "");
+            int irc_channel_mode(std::string, std::string, std::string = "");
+
         private :
             // hook private management. [internal use only]
             void _add_hook(__t::irc_command_hook*, char*, int (*) (char*, __t::irc_response*, void*));

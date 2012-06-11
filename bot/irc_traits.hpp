@@ -102,17 +102,6 @@ namespace irc_traits {
         irc_user    *next;
     };
 
-    inline int irc_channel_join(connection conn, string chan)
-    {
-        stringstream buf;
-        buf << "JOIN " << chan
-            << "\r\n";
-
-        send(conn.irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
-
-        return 0;
-    }
-
 }
 }
 

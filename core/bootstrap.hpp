@@ -20,7 +20,7 @@
 #include <Wt/Dbo/Types>
 
 #include "models/model.hpp"
-#include "bot/documentor.hpp"
+#include "bot/bot.hpp"
 
 namespace evias {
 

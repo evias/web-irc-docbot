@@ -9,27 +9,27 @@ namespace evias {
 
     namespace __t = irc_traits;
 
-    class documentor
+    class bot
     {
         /** Singleton pattern. **/
     protected:
-        documentor();
-        documentor(documentor*);
+        bot();
+        bot(bot*);
 
     private:
-        documentor(const documentor&);
-        const documentor& operator=(const documentor&);
+        bot(const bot&);
+        const bot& operator=(const bot&);
 
     public:
-        virtual ~documentor();
-        static documentor& get();
-        static documentor* pget();
+        virtual ~bot();
+        static bot& get();
+        static bot* pget();
 
-        void loop();
+        void init();
         ircClient* get_irc();
 
     private:
-        static documentor*  instance_;
+        static bot*  instance_;
 
         boost::shared_ptr<ircClient> irc_;
         __t::irc_conn_config         config_;

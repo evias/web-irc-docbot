@@ -1,11 +1,11 @@
-#include "documentor.hpp"
+#include "bot.hpp"
 
 using namespace std;
 using namespace evias;
 
-documentor* documentor::instance_ = NULL;
+bot* bot::instance_ = NULL;
 
-documentor::documentor()
+bot::bot()
 {
     config_ = __t::irc_conn_config::create(
         "irc.freenode.net",
@@ -17,7 +17,7 @@ documentor::documentor()
     irc_ = boost::shared_ptr<ircClient>(new ircClient());
 }
 
-documentor::documentor(documentor* p)
+bot::bot(bot* p)
 {
     if (instance_)
         throw std::logic_error(string("Singleton instance already created."));
@@ -25,34 +25,34 @@ documentor::documentor(documentor* p)
    instance_ = p;
 }
 
-documentor::~documentor()
+bot::~bot()
 {
     irc_.reset();
     instance_ = NULL;
 }
 
-documentor& documentor::get()
+bot& bot::get()
 {
     return *(pget());
 }
 
-documentor* documentor::pget()
+bot* bot::pget()
 {
     if (! instance_)
-        instance_ = new documentor;
+        instance_ = new bot;
 
     return instance_;
 }
 
-void documentor::loop()
+void bot::init()
 {
     irc_.get()->connect(config_);
     irc_.get()->reply_loop(__t::MSG_ENDMOTD);
 
-    __t::irc_channel_join(irc_.get()->get_connection(), "#evias.be");
+    irc_.get()->irc_channel_join("#evias.be");
 }
 
-ircClient* documentor::get_irc()
+ircClient* bot::get_irc()
 {
     return irc_.get();
 }

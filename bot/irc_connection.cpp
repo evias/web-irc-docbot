@@ -305,3 +305,109 @@ void ircClient::parse_response(char *data)
     //if (regex_match(data, match_irc_resp, "^\\: ([A-Za-z0-9]+) "))
 }
 
+int ircClient::irc_notice(string target, string msg)
+{
+    stringstream buf;
+    buf << "NOTICE " << target << " :" << msg
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+int ircClient::irc_privmsg(string target, string msg)
+{
+    stringstream buf;
+    buf << "PRIVMSG " << target << " :" << msg
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+int ircClient::irc_nick(string newnick)
+{
+    stringstream buf;
+    buf << "NICK " << newnick
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+
+int ircClient::irc_channel_isop(string chan, string nick)
+{
+    __t::irc_user* user;
+    user = chan_users_;
+
+    while (user) {
+        if (!strcmp(user->channel, chan.c_str()) && !strcmp( user->nick, nick.c_str()))
+            return user->flags & IRC_USER_OP;
+
+        user = user->next;
+    }
+    return 0;
+}
+
+int ircClient::irc_channel_isvoice(string chan, string nick)
+{
+    __t::irc_user* user;
+    user = chan_users_;
+
+    while (user) {
+        if (!strcmp(user->channel, chan.c_str()) && !strcmp(user->nick, nick.c_str()))
+            return user->flags&IRC_USER_VOICE;
+
+        user = user->next;
+    }
+    return 0;
+}
+
+int ircClient::irc_channel_join(string chan)
+{
+    stringstream buf;
+    buf << "JOIN " << chan
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+int ircClient::irc_channel_part(string chan)
+{
+    stringstream buf;
+    buf << "PART " << chan
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+int ircClient::irc_channel_kick(string chan, string nick, string msg)
+{
+    stringstream buf;
+    buf << "KICK " << chan << " " << nick;
+    if (! msg.empty())
+        buf << " :" << msg;
+
+    buf << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+int ircClient::irc_channel_mode(string chan, string modes, string targets)
+{
+    stringstream buf;
+    buf << "MODE " << chan << " " << modes;
+    if (! targets.empty())
+        buf << " " << targets;
+
+    buf << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
+}
+
+
