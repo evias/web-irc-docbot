@@ -48,6 +48,8 @@ void documentor::loop()
 {
     irc_.get()->connect(config_);
     irc_.get()->reply_loop(__t::MSG_ENDMOTD);
+
+    __t::irc_channel_join(irc_.get()->get_connection(), "#evias.be");
 }
 
 ircClient* documentor::get_irc()

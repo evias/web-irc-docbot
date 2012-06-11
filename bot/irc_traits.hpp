@@ -18,6 +18,7 @@
 
 #include <string>
 #include <algorithm>
+#include <sstream>
 
 #define IRC_DEBUG 1
 
@@ -25,6 +26,7 @@ namespace evias {
 namespace irc_traits {
 
     using std::string;
+    using std::stringstream;
 
     const unsigned int IRC_USER_VOICE   = 1;
     const unsigned int IRC_USER_HALFOP  = 2;
@@ -99,6 +101,17 @@ namespace irc_traits {
         char        flags;
         irc_user    *next;
     };
+
+    inline int irc_channel_join(connection conn, string chan)
+    {
+        stringstream buf;
+        buf << "JOIN " << chan
+            << "\r\n";
+
+        send(conn.irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+
+        return 0;
+    }
 
 }
 }
