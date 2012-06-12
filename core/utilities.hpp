@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
 
 #include <boost/algorithm/string.hpp>
 
@@ -23,6 +24,20 @@ namespace utilities {
             if (*i == f)
                 return true;
         return false;
+    }
+
+    inline std::string trim(const std::string& s, std::string sz = " \n")
+    {
+        using std::string;
+
+        string out = s;
+        string::size_type pos  = 0;
+
+        do out = out.replace(pos, 1, "");
+        while ((pos = out.find_last_of(sz)) != string::npos
+               && pos == out.size()-1);
+
+        return out;
     }
 
 };
