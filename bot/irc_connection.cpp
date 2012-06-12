@@ -272,7 +272,12 @@ int ircClient::reply_loop(string end_msg)
         vector<string> lines;
         boost::split(lines, buffer, boost::algorithm::is_any_of("§"));
 
-        process_response(lines);
+        for (vector<string>::iterator it = lines.begin(); it != lines.end(); it++) {
+            vector<string> l2;
+
+            boost::split(l2, *it, boost::algorithm::is_any_of("\n"));
+            process_response(l2);
+        }
 
         if ((bool) end_msg.size()
             && __u::in_vector<string>(last_treated_, end_codes_))
@@ -284,11 +289,10 @@ int ircClient::reply_loop(string end_msg)
 
 void ircClient::process_response(vector<string> lines)
 {
-    string reg_server   = "^(\\:[a-zA-Z0-9\\.]+)";
-    string reg_response = reg_server + " ([A-Z0-9]+) ([A-Za-z0-9\\._`]+) \\:([\\.+])\\\\r\\\\n$";
+    string reg_response = "^(:[a-zA-Z0-9\\.]+) ([A-Z]+|[0-9]{3}) ([A-Za-z0-9_`]+) (:[\\w \\-\\[\\]\\.\\\\\\(\\)\"'\\n]+)";
 
     boost::cmatch matches;
-    boost::regex expr(reg_response);
+    boost::regex expr(reg_response, boost::regex::perl);
 
     for (vector<string>::iterator line = lines.begin(); line != lines.end(); line++) {
         if (regex_match((*line).c_str(), matches, expr)) {
@@ -308,6 +312,7 @@ void ircClient::process_response(vector<string> lines)
             log("[DATA] " + l.str());
         }
         else {
+            // XXX not matching means rest of line-1
             log("[RAWDATA]" + *line);
         }
     }
