@@ -1,6 +1,8 @@
 #include "user.hpp"
 
 #include <Wt/Dbo/Impl>
+#include <Wt/WDateTime>
+#include <Wt/Dbo/WtSqlTraits>
 
 DBO_INSTANTIATE_TEMPLATES(evias::models::user);
 

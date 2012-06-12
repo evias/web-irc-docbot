@@ -1,9 +1,9 @@
 #ifndef __EVIAS_DOCBOT_MODELS_USER__
 #define __EVIAS_DOCBOT_MODELS_USER__
 
-#include <Wt/WDateTime>
 #include <Wt/Dbo/Types>
 #include <Wt/Dbo/WtSqlTraits>
+#include <Wt/WDateTime>
 
 #include "model.hpp"
 #include "user_data.hpp"
