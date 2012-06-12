@@ -20,7 +20,7 @@
 #include "web/interface.hpp"
 
 namespace evias {
-
+namespace web {
     class application
         : public Wt::WApplication
     {
@@ -32,6 +32,7 @@ namespace evias {
         boost::shared_ptr<evias::interface> view_;
     };
 
+}
 };
 
 #endif /** __EVIAS_DOCBOT_WEB_APPLICATION__ **/
