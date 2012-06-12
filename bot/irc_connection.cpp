@@ -289,7 +289,8 @@ int ircClient::reply_loop(string end_msg)
 
 void ircClient::process_response(vector<string> lines)
 {
-    string reg_response = "^(:[a-zA-Z0-9\\.]+) ([A-Z]+|[0-9]{3}) ([A-Za-z0-9_`]+) (:[\\w \\-\\[\\]\\.\\\\\\(\\)\"'\\n]+)";
+    string reg_resp_data = "(:?[\\w _\\-\\+=\\*\\.:,;\\?!\\\\\\(\\)\\[\\]\\{\\}\"'#~%\\^&@\\$\\/\\n\\r\\0]+)";
+    string reg_response  = "^(:[\\w0-9\\.]+) ([A-Z]+|[0-9]{3}) ([\\*]{1}|[\\w0-9_`\\[\\]]+) " + reg_resp_data;
 
     boost::cmatch matches;
     boost::regex expr(reg_response, boost::regex::perl);
@@ -297,23 +298,23 @@ void ircClient::process_response(vector<string> lines)
     for (vector<string>::iterator line = lines.begin(); line != lines.end(); line++) {
         if (regex_match((*line).c_str(), matches, expr)) {
             string server, code, target, data;
-            server.assign(matches[1].first, matches[1].second);
-            code.assign(matches[2].first, matches[2].second);
-            target.assign(matches[3].first, matches[3].second);
+
             data.assign(matches[4].first, matches[4].second);
 
+            namespace __u = evias::utilities;
+
             stringstream l;
-            l << "{server:'" << server << "';"
-              << "message:'" << code << "';"
-              << "target:'" << target << "';"
-              << "data:'" << data << "'};"
+            l << "{server:'" << matches[1] << "';"
+              << "message:'" << matches[2] << "';"
+              << "target:'" << matches[3] << "';"
+              << "data:'" << __u::trim(data, " \t\r\n") << "'};"
               << endl;
 
             log("[DATA] " + l.str());
         }
         else {
             // XXX not matching means rest of line-1
-            log("[RAWDATA]" + *line);
+            log("[RAWDATA]" + *line + "]");
         }
     }
 }
