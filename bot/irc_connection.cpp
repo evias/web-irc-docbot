@@ -24,10 +24,14 @@ ircClient::ircClient( )
     config_.name    = "";
     config_.pass    = "";
     config_.server  = "";
+    exec_log_file_  = "public/shared/logs/docbot_execution_log.txt";
+    log_out_.open(exec_log_file_.c_str(), ios::app);
 }
 
 ircClient::~ircClient( )
 {
+    if (log_out_.is_open())
+        log_out_.close();
     if (hooks_)
         unhook(hooks_);
 }
@@ -37,7 +41,10 @@ void ircClient::log(string msg)
     if (quiet_)
         return ;
 
-    cout << msg << endl;
+    if (! log_out_.is_open())
+        log_out_.open(exec_log_file_.c_str(), ios::app);
+
+    log_out_ << msg << endl;
 }
 
 /**
@@ -156,14 +163,6 @@ int ircClient::connect(irc_conn_config conf)
 {
     _remote_config(conf);
 
-    stringstream logger;
-    logger << "remote configuration: {"
-           << "host:'" << config_.server << ":" << config_.port << "';"
-           << "user:'" << config_.nick << " " << config_.user << "@" << config_.name << "';"
-           << "}" << endl;
-
-    log(logger.str());
-
     if ((::connect(conn_.irc_socket, (const sockaddr*)& conn_.remote, sizeof(conn_.remote))
         == SOCKET_ERROR)) {
 
@@ -173,8 +172,6 @@ int ircClient::connect(irc_conn_config conf)
         closesocket(conn_.local_socket);
         return 1;
     }
-
-    log("Send authentication data.");
 
     stringstream buf;
     buf << "NICK " << config_.nick.c_str()
@@ -189,6 +186,8 @@ int ircClient::connect(irc_conn_config conf)
 
     // send nick, user & name
     send(conn_.irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+
+    log("[DEBUG] Connection established.");
 
     config_.connected = true;
     return 0;
@@ -252,7 +251,7 @@ int ircClient::reply_loop(string end_msg)
 
     hostent* resolv;
     if (! config_.connected) {
-        log("You are not connected !");
+        log("[ERROR] Connection not available.");
         return 1;
     }
 
@@ -264,46 +263,54 @@ int ircClient::reply_loop(string end_msg)
 
         buffer[ret_len] = '\0';
 
-        cout << "GOT: [" << buffer << "]" << endl;
+        string buf = buffer;
+        do {
+            boost::replace_first(buf, "\r\n", "§");
+        }
+        while(buf.find("\r\n") != string::npos);
 
-        // XXX split_response(buffer);
+        vector<string> lines;
+        boost::split(lines, buffer, boost::algorithm::is_any_of("§"));
+
+        process_response(lines);
 
         if ((bool) end_msg.size()
-            && __u::in_vector<string>(end_msg, end_codes_))
+            && __u::in_vector<string>(last_treated_, end_codes_))
             return 0;
     }
 
     return 0;
 }
 
-void ircClient::split_response(char* data)
+void ircClient::process_response(vector<string> lines)
 {
-    char *p;
-    while (p = strstr(data, "\r\n")) {
-        *p = '\0';
-        parse_response(data);
-        data = p + 2;
+    string reg_server   = "^(\\:[a-zA-Z0-9\\.]+)";
+    string reg_response = reg_server + " ([A-Z0-9]+) ([A-Za-z0-9\\._`]+) \\:([\\.+])\\\\r\\\\n$";
+
+    boost::cmatch matches;
+    boost::regex expr(reg_response);
+
+    for (vector<string>::iterator line = lines.begin(); line != lines.end(); line++) {
+        if (regex_match((*line).c_str(), matches, expr)) {
+            string server, code, target, data;
+            server.assign(matches[1].first, matches[1].second);
+            code.assign(matches[2].first, matches[2].second);
+            target.assign(matches[3].first, matches[3].second);
+            data.assign(matches[4].first, matches[4].second);
+
+            stringstream l;
+            l << "{server:'" << server << "';"
+              << "message:'" << code << "';"
+              << "target:'" << target << "';"
+              << "data:'" << data << "'};"
+              << endl;
+
+            log("[DATA] " + l.str());
+        }
+        else {
+            log("[RAWDATA]" + *line);
+        }
     }
-}
-
-void ircClient::parse_response(char *data)
-{
-    char            *hostd;
-    char            *cmd;
-    char            *params;
-    char            buffer[514];
-    irc_response    response;
-    irc_user*       users;
-    char            *p;
-    char            *chan_temp;
-    string          message = "";
-
-    response.target = 0;
-
-    string reg_notice = "^NOTICE (.+)";
-
-    //cmatch match_irc_resp;
-    //if (regex_match(data, match_irc_resp, "^\\: ([A-Za-z0-9]+) "))
 }
 
 int ircClient::irc_notice(string target, string msg)

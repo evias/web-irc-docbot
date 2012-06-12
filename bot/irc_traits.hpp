@@ -34,6 +34,7 @@ namespace irc_traits {
 
     /** messages **/
     const string MSG_CHANPART = "PART";
+    const string MSG_PRIVMSG  = "PRIVMSG";
     /** responses **/
     const string MSG_ENDMOTD = "376";
     const string MSG_ENDLIST = "366";

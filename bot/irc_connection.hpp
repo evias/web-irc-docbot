@@ -5,6 +5,7 @@
 #include "core/utilities.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 
 namespace evias {
@@ -43,8 +44,7 @@ namespace evias {
 
             // data management
             int reply_loop(std::string="");
-            void parse_response(char*);
-            void split_response(char*);
+            void process_response(std::vector<std::string>);
 
             std::string get_last_treated();
             void        log(std::string);
@@ -65,7 +65,9 @@ namespace evias {
             void _add_hook(__t::irc_command_hook*, char*, int (*) (char*, __t::irc_response*, void*));
             void _remote_config(__t::irc_conn_config);
 
-            bool quiet_;
+            std::string     exec_log_file_;
+            std::ofstream   log_out_;
+            bool            quiet_;
             __t::irc_conn_config config_;
             __t::connection      conn_;
             std::string          last_treated_;

@@ -46,9 +46,11 @@ bot* bot::pget()
 
 void bot::init()
 {
+    // connect
     irc_.get()->connect(config_);
     irc_.get()->reply_loop(__t::MSG_ENDMOTD);
 
+    // join default channel
     irc_.get()->irc_channel_join("#evias.be");
     irc_.get()->reply_loop(__t::MSG_ENDLIST + "|" + __t::MSG_INVALIDCHAN);
 }
