@@ -26,6 +26,23 @@ ircClient::ircClient( )
     config_.server  = "";
     exec_log_file_  = "public/shared/logs/docbot_execution_log.txt";
     log_out_.open(exec_log_file_.c_str(), ios::app);
+
+    g_operators_   = "\\-\\+=\\*/";
+    g_punctuation_ = "\\.:,;\\?!";
+    g_brackets_    = "\\(\\)\\[\\]\\{\\}";
+    g_spaces_      = "\\n\\r\\0\\t ";
+    g_special_     = "\\\\\"'#~%\\^&@\\$_";
+    g_server_id_   = "[\\w0-9\\.]+";
+    g_user_id_     = "[\\w0-9_`\\[\\]]+!~[\\w0-9\\.\\-_\\[\\]]+@[\\w0-9\\.\\-_\\[\\]]+";
+    g_message_id_  = "[A-Z]+|[0-9]{3}";
+    g_target_id_   = "[\\*]{1}|[\\w0-9_`\\[\\]]+";
+
+    g_data_ = ":?[\\w" + g_operators_ + g_punctuation_ + g_brackets_ + g_spaces_ + g_special_ + "]+";
+
+    r_server_response_ = "^(:" + g_server_id_ + ") (" + g_message_id_ + ") (" + g_target_id_ + ") (" + g_data_ + ")";
+    r_server_query_    = "^(" + g_message_id_ + ") (" + g_data_ + ")";
+    r_request_         = "^(:" + g_user_id_ + ") (" + g_message_id_ + ") (" + g_target_id_ + ") (" + g_data_ + ")";
+    r_block_remainal_  = "^[^:](" + g_data_ + ")";
 }
 
 ircClient::~ircClient( )
@@ -45,6 +62,12 @@ void ircClient::log(string msg)
         log_out_.open(exec_log_file_.c_str(), ios::app);
 
     log_out_ << msg << endl;
+}
+
+void ircClient::log(string prepend, vector<string> lines)
+{
+    for (vector<string>::iterator l = lines.begin(); l != lines.end(); l++)
+        log(prepend + *l);
 }
 
 /**
@@ -246,8 +269,9 @@ int ircClient::reply_loop(string end_msg)
     int  ret_len;
     char buffer[1024];
 
+    vector<string> end_codes;
     if (! end_msg.empty())
-        boost::split(end_codes_, end_msg, boost::is_any_of("|"));
+        boost::split(end_codes, end_msg, boost::is_any_of("|"));
 
     hostent* resolv;
     if (! config_.connected) {
@@ -263,6 +287,7 @@ int ircClient::reply_loop(string end_msg)
 
         buffer[ret_len] = '\0';
 
+        // replace CRLF for easier split algorithm.
         string buf = buffer;
         do {
             boost::replace_first(buf, "\r\n", "§");
@@ -273,14 +298,17 @@ int ircClient::reply_loop(string end_msg)
         boost::split(lines, buffer, boost::algorithm::is_any_of("§"));
 
         for (vector<string>::iterator it = lines.begin(); it != lines.end(); it++) {
+            // split block of lines into single lines.
             vector<string> l2;
 
             boost::split(l2, *it, boost::algorithm::is_any_of("\n"));
             process_response(l2);
         }
 
+        process_stack();
+
         if ((bool) end_msg.size()
-            && __u::in_vector<string>(last_treated_, end_codes_))
+            && __u::in_vector<string>(last_treated_msg_, end_codes))
             return 0;
     }
 
@@ -289,34 +317,122 @@ int ircClient::reply_loop(string end_msg)
 
 void ircClient::process_response(vector<string> lines)
 {
-    string reg_resp_data = "(:?[\\w _\\-\\+=\\*\\.:,;\\?!\\\\\\(\\)\\[\\]\\{\\}\"'#~%\\^&@\\$\\/\\n\\r\\0]+)";
-    string reg_response  = "^(:[\\w0-9\\.]+) ([A-Z]+|[0-9]{3}) ([\\*]{1}|[\\w0-9_`\\[\\]]+) " + reg_resp_data;
+     boost::cmatch matches;
+    boost::regex expr_server_response(r_server_response_, boost::regex::perl);
+    boost::regex expr_server_query(r_server_query_, boost::regex::perl);
+    boost::regex expr_request(r_request_, boost::regex::perl);
+    boost::regex expr_block_remainal(r_block_remainal_, boost::regex::perl);
 
-    boost::cmatch matches;
-    boost::regex expr(reg_response, boost::regex::perl);
-
+    string lost_data_buf;
+    vector<string> stacked_lines;
     for (vector<string>::iterator line = lines.begin(); line != lines.end(); line++) {
-        if (regex_match((*line).c_str(), matches, expr)) {
-            string server, code, target, data;
 
-            data.assign(matches[4].first, matches[4].second);
+        __t::message_type_t type;
+        string              msg;
 
-            namespace __u = evias::utilities;
+        // determine message type with regular expressions
+        if (regex_match((*line).c_str(), matches, expr_server_response))
+            type = TYPE_SERVER_RESPONSE;
+        else if (regex_match((*line).c_str(), matches, expr_server_query))
+             type = TYPE_SERVER_QUERY;
+        else if (regex_match((*line).c_str(), matches, expr_request))
+            type = TYPE_REQUEST;
+        else if (regex_match((*line).c_str(), matches, expr_block_remainal))
+            type = TYPE_BLOCK_REMAINAL;
+        else
+            type = TYPE_UNKNOWN;
 
-            stringstream l;
-            l << "{server:'" << matches[1] << "';"
-              << "message:'" << matches[2] << "';"
-              << "target:'" << matches[3] << "';"
-              << "data:'" << __u::trim(data, " \t\r\n") << "'};"
-              << endl;
+        msg = __u::trim(*line, "\t\r\n");
 
-            log("[DATA] " + l.str());
+        // XXX message is truncated if one part comes in one block
+        // and the end part is in another block [yet to be downloaded]
+        pair<bool,string> line_conf = stack_message(type, msg);
+
+        if (line_conf.first == false
+            && (bool) stacked_lines.size())
+            // last line should be pop'd out as we repaired with lost data.
+            stacked_lines.pop_back();
+
+        stacked_lines.push_back(line_conf.second);
+    }
+
+    // log block of stacked lines
+    log("", stacked_lines);
+}
+
+pair<bool, string> ircClient::stack_message(__t::message_type_t type, string msg)
+{
+    string stacked_msg = msg;
+    bool   can_be_stacked = false;
+    if (type != TYPE_UNKNOWN && type != TYPE_BLOCK_REMAINAL) {
+        // stack the message for later process
+        message_stack_t::iterator i_find;
+        if ((i_find = stack_.find(type)) == stack_.end()) {
+            vector<string> msgs;
+            msgs.push_back(msg);
+            stack_.insert(make_pair(type, msgs));
         }
-        else {
-            // XXX not matching means rest of line-1
-            log("[RAWDATA]" + *line + "]");
+        else
+            (*i_find).second.push_back(msg);
+
+        last_stacked_  = make_pair(type, msg);
+        can_be_stacked = true;
+    }
+    else if (type == TYPE_BLOCK_REMAINAL) {
+        // append current message to last stacked
+
+        message_stack_t::iterator entry;
+        if ((entry = stack_.find(last_stacked_.first)) != stack_.end()
+             && (bool) entry->second.size()) {
+
+            string truncated = *(entry->second.rbegin());
+            truncated.append(msg);
+            stacked_msg = truncated;
+
+            // stack completed message
+            entry->second.pop_back();
+            entry->second.push_back(truncated);
         }
     }
+
+    return make_pair(can_be_stacked, stacked_msg);
+}
+
+void ircClient::process_stack()
+{
+
+    message_stack_t::iterator it_entry;
+    for (it_entry = stack_.begin(); it_entry != stack_.end(); it_entry++) {
+
+        string issuer, msg_code, target, data;
+        boost::cmatch matches;
+        vector<string>::iterator it_line;
+        for (it_line = it_entry->second.begin(); it_line != it_entry->second.end(); it_line++) {
+            if (it_entry->first == TYPE_SERVER_RESPONSE) {
+                regex_match((*it_line).c_str(), matches, boost::regex(r_server_response_, boost::regex::perl));
+                issuer   = matches[1];
+                msg_code = matches[2];
+                target   = matches[3];
+                data     = matches[4];
+            }
+            else if (it_entry->first == TYPE_SERVER_QUERY) {
+                regex_match((*it_line).c_str(), matches, boost::regex(r_server_query_, boost::regex::perl));
+                msg_code = matches[1];
+                data     = matches[2];
+            }
+            else if (it_entry->first == TYPE_REQUEST) {
+                regex_match((*it_line).c_str(), matches, boost::regex(r_request_, boost::regex::perl));
+                issuer   = matches[1];
+                msg_code = matches[2];
+                target   = matches[3];
+                data     = matches[4];
+            }
+        }
+
+        last_treated_msg_ = msg_code;
+    }
+
+    log("[DEBUG] Last treated IRC message: " + last_treated_msg_);
 }
 
 int ircClient::irc_notice(string target, string msg)
