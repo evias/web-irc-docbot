@@ -103,6 +103,14 @@ namespace irc_traits {
         irc_user    *next;
     };
 
+    enum message_type_t {
+        TYPE_BLOCK_REMAINAL  = 0,
+        TYPE_SERVER_RESPONSE = 1,
+        TYPE_SERVER_QUERY    = 2,
+        TYPE_REQUEST         = 3,
+        TYPE_UNKNOWN         = 4
+    };
+
 }
 }
 
