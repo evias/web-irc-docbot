@@ -7,7 +7,7 @@ using namespace evias;
 
 bool bot_user_auth::operator()(string user, string pass)
 {
-//    dbo::Transaction trx(model::getSession());
+    dbo::Transaction trx(model::getSession());
 
     // first get the password salt
     dbo::Query<string> salt_query = model::getSession().query<string>(
@@ -20,7 +20,7 @@ bool bot_user_auth::operator()(string user, string pass)
     dbo::Query<int> cred_query = model::getSession().query<int>(
                     "select id_user from public.user u")
                     .where("login = ?").bind(user)
-                    // prepend password to salt and md5 result.
+                    // prepend password to salt and md5() the result.
                     .where("password = md5(?)").bind(salt.insert(0, pass));
 
     int user_id = cred_query.resultValue();
