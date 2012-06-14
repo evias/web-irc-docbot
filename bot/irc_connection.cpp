@@ -2,6 +2,7 @@
 
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/regex.hpp>
 #include <sstream>
 
 using namespace std;
@@ -271,7 +272,7 @@ int ircClient::reply_loop(string end_msg)
 
     vector<string> end_codes;
     if (! end_msg.empty())
-        boost::split(end_codes, end_msg, boost::is_any_of("|"));
+        boost::split_regex(end_codes, end_msg, boost::regex("\\|"));
 
     hostent* resolv;
     if (! config_.connected) {
@@ -279,45 +280,36 @@ int ircClient::reply_loop(string end_msg)
         return 1;
     }
 
+    // XXX break on message code catch
     while (1) {
         ret_len = recv(conn_.irc_socket, buffer, 1023, 0 );
 
         if (ret_len == SOCKET_ERROR || ! ret_len)
-            return 1;
+            break;
 
         buffer[ret_len] = '\0';
 
         // replace CRLF for easier split algorithm.
         string buf = buffer;
-        do {
-            boost::replace_first(buf, "\r\n", "§");
-        }
-        while(buf.find("\r\n") != string::npos);
-
         vector<string> lines;
-        boost::split(lines, buffer, boost::algorithm::is_any_of("§"));
 
-        for (vector<string>::iterator it = lines.begin(); it != lines.end(); it++) {
-            // split block of lines into single lines.
-            vector<string> l2;
+        // split into lines
+        boost::algorithm::split_regex(lines, buf, boost::regex("[\\n]+|\\r\\n"));
 
-            boost::split(l2, *it, boost::algorithm::is_any_of("\n"));
-            process_response(l2);
-        }
-
-        process_stack();
+        stack_response(lines);
 
         if ((bool) end_msg.size()
-            && __u::in_vector<string>(last_treated_msg_, end_codes))
-            return 0;
+            && ! (__u::vector_intersection<string>(treated_msgs_, end_codes)).empty())
+            break;
     }
+    process_stack();
 
     return 0;
 }
 
-void ircClient::process_response(vector<string> lines)
+void ircClient::stack_response(vector<string> lines)
 {
-     boost::cmatch matches;
+    boost::cmatch matches;
     boost::regex expr_server_response(r_server_response_, boost::regex::perl);
     boost::regex expr_server_query(r_server_query_, boost::regex::perl);
     boost::regex expr_request(r_request_, boost::regex::perl);
@@ -327,16 +319,25 @@ void ircClient::process_response(vector<string> lines)
     vector<string> stacked_lines;
     for (vector<string>::iterator line = lines.begin(); line != lines.end(); line++) {
 
+        __t::message_data_t data;
         __t::message_type_t type;
         string              msg;
+        string              code;
 
+        code = "";
         // determine message type with regular expressions
-        if (regex_match((*line).c_str(), matches, expr_server_response))
+        if (regex_match((*line).c_str(), matches, expr_server_response)) {
+            code = matches[2];
             type = TYPE_SERVER_RESPONSE;
-        else if (regex_match((*line).c_str(), matches, expr_server_query))
-             type = TYPE_SERVER_QUERY;
-        else if (regex_match((*line).c_str(), matches, expr_request))
+        }
+        else if (regex_match((*line).c_str(), matches, expr_server_query)) {
+            code = matches[1];
+            type = TYPE_SERVER_QUERY;
+        }
+        else if (regex_match((*line).c_str(), matches, expr_request)) {
+            code = matches[2];
             type = TYPE_REQUEST;
+        }
         else if (regex_match((*line).c_str(), matches, expr_block_remainal))
             type = TYPE_BLOCK_REMAINAL;
         else
@@ -344,69 +345,29 @@ void ircClient::process_response(vector<string> lines)
 
         msg = __u::trim(*line, "\t\r\n");
 
-        // XXX message is truncated if one part comes in one block
-        // and the end part is in another block [yet to be downloaded]
-        pair<bool,string> line_conf = stack_message(type, msg);
+        data.message = msg;
+        data.type    = type;
 
-        if (line_conf.first == false
-            && (bool) stacked_lines.size())
-            // last line should be pop'd out as we repaired with lost data.
-            stacked_lines.pop_back();
+        if (! code.empty())
+            treated_msgs_.push_back(code);
 
-        stacked_lines.push_back(line_conf.second);
+        stack_.push(data);
     }
 
     // log block of stacked lines
-    log("", stacked_lines);
-}
-
-pair<bool, string> ircClient::stack_message(__t::message_type_t type, string msg)
-{
-    string stacked_msg = msg;
-    bool   can_be_stacked = false;
-    if (type != TYPE_UNKNOWN && type != TYPE_BLOCK_REMAINAL) {
-        // stack the message for later process
-        message_stack_t::iterator i_find;
-        if ((i_find = stack_.find(type)) == stack_.end()) {
-            vector<string> msgs;
-            msgs.push_back(msg);
-            stack_.insert(make_pair(type, msgs));
-        }
-        else
-            (*i_find).second.push_back(msg);
-
-        last_stacked_  = make_pair(type, msg);
-        can_be_stacked = true;
-    }
-    else if (type == TYPE_BLOCK_REMAINAL) {
-        // append current message to last stacked
-
-        message_stack_t::iterator entry;
-        if ((entry = stack_.find(last_stacked_.first)) != stack_.end()
-             && (bool) entry->second.size()) {
-
-            string truncated = *(entry->second.rbegin());
-            truncated.append(msg);
-            stacked_msg = truncated;
-
-            // stack completed message
-            entry->second.pop_back();
-            entry->second.push_back(truncated);
-        }
-    }
-
-    return make_pair(can_be_stacked, stacked_msg);
+    log("", vector<string>(stack_));
 }
 
 void ircClient::process_stack()
-{
-
+{/*
     message_stack_t::iterator it_entry;
     for (it_entry = stack_.begin(); it_entry != stack_.end(); it_entry++) {
 
         string issuer, msg_code, target, data;
         boost::cmatch matches;
         vector<string>::iterator it_line;
+
+        // browse all messages by type
         for (it_line = it_entry->second.begin(); it_line != it_entry->second.end(); it_line++) {
             if (it_entry->first == TYPE_SERVER_RESPONSE) {
                 regex_match((*it_line).c_str(), matches, boost::regex(r_server_response_, boost::regex::perl));
@@ -432,7 +393,7 @@ void ircClient::process_stack()
         last_treated_msg_ = msg_code;
     }
 
-    log("[DEBUG] Last treated IRC message: " + last_treated_msg_);
+    log("[DEBUG] Last treated IRC message: " + last_treated_msg_);*/
 }
 
 int ircClient::irc_notice(string target, string msg)

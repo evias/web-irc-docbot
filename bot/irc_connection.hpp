@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <queue>
 #include <map>
 
 namespace evias {
@@ -17,6 +18,7 @@ namespace evias {
         struct irc_conn_config;
         struct irc_user;
         struct connection;
+        enum message_type_t;
     }
 
     namespace __t = irc_traits;
@@ -25,9 +27,6 @@ namespace evias {
     class ircClient
     {
         public :
-            typedef std::map<__t::message_type_t, std::vector<std::string> > message_stack_t;
-            typedef std::pair<__t::message_type_t, std::string >             stack_entry_t;
-
             ircClient();
             ~ircClient();
 
@@ -48,7 +47,7 @@ namespace evias {
 
             // data management
             int reply_loop(std::string="");
-            void process_response(std::vector<std::string>);
+            void stack_response(std::vector<std::string>);
             void process_stack();
             std::pair<bool,std::string> stack_message(__t::message_type_t, std::string);
 
@@ -75,15 +74,14 @@ namespace evias {
             bool            quiet_;
             std::ofstream   log_out_;
             std::string     exec_log_file_;
-            std::string     last_treated_msg_;
 
             __t::irc_user*          chan_users_;
             __t::irc_conn_config    config_;
             __t::connection         conn_;
             __t::irc_command_hook*  hooks_;
 
-            message_stack_t stack_;
-            stack_entry_t   last_stacked_;
+            std::vector<std::string> treated_msgs_;
+            __t::message_stack_t     stack_;
 
             std::string g_operators_;
             std::string g_punctuation_;
