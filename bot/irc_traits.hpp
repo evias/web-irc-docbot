@@ -17,6 +17,7 @@
 #include <cstdlib>
 
 #include <string>
+#include <queue>
 #include <algorithm>
 #include <sstream>
 
@@ -26,6 +27,8 @@ namespace evias {
 namespace irc_traits {
 
     using std::string;
+    using std::queue;
+    using std::vector;
     using std::stringstream;
 
     const unsigned int IRC_USER_VOICE   = 1;
@@ -109,6 +112,33 @@ namespace irc_traits {
         TYPE_SERVER_QUERY    = 2,
         TYPE_REQUEST         = 3,
         TYPE_UNKNOWN         = 4
+    };
+
+    struct message_data_t {
+        // is unknown means must be appended [msg-1 was truncated]
+        string  message;
+        message_type_t type;
+    };
+
+    struct message_stack_t {
+        typedef queue<message_data_t> data_t;
+
+        data_t  stack;
+
+        void push(message_data_t d)
+        {
+            stack.push(d);
+        }
+
+        operator vector<string>()
+        {
+            vector<string> output;
+            while (! stack.empty()) {
+                output.push_back(stack.front().message);
+                stack.pop();
+            }
+            return output;
+        }
     };
 
 }
