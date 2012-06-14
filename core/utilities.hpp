@@ -47,7 +47,20 @@ namespace utilities {
         return false;
     }
 
-    inline string trim(const string& s, string sz = " \t\r\n")
+    inline string ltrim(const string& s, string sz = " \t\r\n")
+    {
+        string out = s;
+        string::size_type pos = -1;
+
+        do if (pos == 0)
+            out = out.replace(0, 1, "");
+        while ((pos = out.find_first_of(sz)) != string::npos
+               && pos == 0);
+
+        return out;
+    }
+
+    inline string rtrim(const string& s, string sz = " \t\r\n")
     {
         string out = s;
         string::size_type pos = 0;
@@ -57,6 +70,12 @@ namespace utilities {
         while ((pos = out.find_last_of(sz)) != string::npos
                && pos == out.size()-1);
 
+        return out;
+    }
+
+    inline string trim(const string &s, string sz = " \t\r\n")
+    {
+        string out = ltrim(rtrim(s, sz), sz);
         return out;
     }
 
@@ -70,6 +89,28 @@ namespace utilities {
             if ((it_values = m2.find(it_keys->first)) != m2.end())
                 // keys from map1, values from map2
                 intersection.insert(make_pair(it_keys->first, it_values->second));
+
+        return intersection;
+    }
+
+    template <typename T>
+    inline vector<T> vector_intersection(vector<T> v1, vector<T> v2)
+    {
+        typename vector<T>::iterator first  = v1.begin();
+        typename vector<T>::iterator second = v2.begin();
+
+        int s1 = v1.size();
+        int s2 = v2.size();
+
+        vector<T> intersection;
+        for (; first != v1.end(); first++) {
+            for (second = v2.begin(); second != v2.end(); second++) {
+                if (*first == *second) {
+                    intersection.push_back(*first);
+                    break;
+                }
+            }
+        }
 
         return intersection;
     }
