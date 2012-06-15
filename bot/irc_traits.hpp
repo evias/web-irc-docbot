@@ -18,8 +18,10 @@
 
 #include <string>
 #include <queue>
+#include <set>
 #include <algorithm>
 #include <sstream>
+#include <stdexcept>
 
 #define IRC_DEBUG 1
 
@@ -28,6 +30,7 @@ namespace irc_traits {
 
     using std::string;
     using std::queue;
+    using std::set;
     using std::vector;
     using std::stringstream;
 
@@ -83,21 +86,6 @@ namespace irc_traits {
         hostent*    host;
     };
 
-    struct irc_response {
-        char *nick;
-        char *ident;
-        char *host;
-        char *target;
-    };
-
-    // command catch feature
-    struct irc_command_hook {
-        char                *ircCommand;
-        irc_command_hook    *next;
-        // pointer to function
-        int (*callback) (char*, irc_response*, void*);
-    };
-
     // people ..
     struct irc_user {
         char        *nick;
@@ -116,29 +104,130 @@ namespace irc_traits {
 
     struct message_data_t {
         // is unknown means must be appended [msg-1 was truncated]
+        string  server;
+        string  code;
+        string  target;
         string  message;
         message_type_t type;
     };
 
     struct message_stack_t {
-        typedef queue<message_data_t> data_t;
+        typedef vector<message_data_t> data_t;
 
         data_t  stack;
 
         void push(message_data_t d)
-        {
-            stack.push(d);
-        }
+            { stack.push_back(d); }
+        void pop()
+            { stack.erase(stack.begin()); }
+        message_data_t front()
+            { return *(stack.begin()); }
+        bool empty()
+            { return stack.empty(); }
 
         operator vector<string>()
         {
             vector<string> output;
-            while (! stack.empty()) {
-                output.push_back(stack.front().message);
-                stack.pop();
+            vector<message_data_t>::iterator it = stack.begin();
+            for (int i = 0; i < stack.size(); i++, it++) {
+                message_data_t d = *it;
+                output.push_back("[" + d.code + "] '" + d.message + "'");
             }
             return output;
         }
+    };
+
+    template <typename __class>
+    class callback
+    {
+    public:
+        typedef int (__class::*callback0_t) ();
+        typedef int (__class::*callback1_t) (string);
+        typedef int (__class::*callback2_t) (string, string);
+        typedef int (__class::*callback3_t) (string, string, string);
+
+        callback(__class* c, int (__class::*cb)())
+            : callee_(c), args1_callback_(NULL), args2_callback_(NULL), args3_callback_(NULL)
+        {
+            args0_callback_ = cb;
+        };
+
+        callback(__class* c, int (__class::*cb)(string))
+            : callee_(c), args0_callback_(NULL), args2_callback_(NULL), args3_callback_(NULL)
+        {
+            args1_callback_ = cb;
+        };
+
+        callback(__class* c, int (__class::*cb)(string,string))
+            : callee_(c), args0_callback_(NULL), args1_callback_(NULL), args3_callback_(NULL)
+        {
+            args2_callback_ = cb;
+        };
+
+        callback(__class* c, int (__class::*cb)(string,string,string))
+            : callee_(c), args0_callback_(NULL), args1_callback_(NULL), args2_callback_(NULL)
+        {
+            args3_callback_ = cb;
+        };
+
+        callback(const callback& cb)
+            : args0_callback_(cb.args0_callback_), args1_callback_(cb.args1_callback_),
+              args2_callback_(cb.args2_callback_), args3_callback_(cb.args3_callback_),
+              callee_(cb.callee_)
+        {
+        };
+
+        virtual ~callback() {};
+
+        bool is_args0()
+            { return args0_callback_ != NULL; }
+        bool is_args1()
+            { return args1_callback_ != NULL; }
+        bool is_args2()
+            { return args2_callback_ != NULL; }
+        bool is_args3()
+            { return args3_callback_ != NULL; }
+
+        int operator()()
+        {
+            if (args0_callback_ == NULL)
+                throw std::logic_error("Wrong callback::operator() called.");
+
+            return (callee_->*args0_callback_)();
+        };
+
+        int operator()(std::string a1)
+        {
+            if (args1_callback_ == NULL)
+                throw std::logic_error("Wrong callback::operator() called.");
+
+            return (callee_->*args1_callback_)(a1);
+        };
+
+        int operator()(std::string a1, std::string a2)
+        {
+            if (args2_callback_ == NULL)
+                throw std::logic_error("Wrong callback::operator() called.");
+
+            return (callee_->*args2_callback_)(a1, a2);
+        };
+
+        int operator()(std::string a1, std::string a2, std::string a3)
+        {
+            if (args3_callback_ == NULL)
+                throw std::logic_error("Wrong callback::operator() called.");
+
+            return (callee_->*args3_callback_)(a1, a2, a3);
+        };
+
+    private:
+        __class*    callee_;
+
+        int (__class::*args0_callback_) ();
+        int (__class::*args1_callback_) (std::string);
+        int (__class::*args2_callback_) (std::string, std::string);
+        int (__class::*args3_callback_) (std::string, std::string, std::string);
+
     };
 
 }
