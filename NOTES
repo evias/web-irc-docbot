@@ -1,0 +1,6 @@
+- ping timeout after 256 seconds.
+    . handle ping pong [may subthread]
+- client responses yet different from server responses
+    . handle host/username association [def. subthread]
+- cut data pieces garbage collector [unmatched request]
+    . lost data should be concat together

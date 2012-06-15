@@ -2,6 +2,7 @@
 
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/regex.hpp>
 #include <sstream>
 
 using namespace std;
@@ -10,7 +11,6 @@ using namespace irc_traits;
 
 ircClient::ircClient( )
 {
-    hooks_      = 0;
     chan_users_ = 0;
     quiet_      = false;
 
@@ -24,12 +24,31 @@ ircClient::ircClient( )
     config_.name    = "";
     config_.pass    = "";
     config_.server  = "";
+    exec_log_file_  = "public/shared/logs/docbot_execution_log.txt";
+    log_out_.open(exec_log_file_.c_str(), ios::app);
+
+    g_operators_   = "\\-\\+=\\*/";
+    g_punctuation_ = "\\.:,;\\?!";
+    g_brackets_    = "\\(\\)\\[\\]\\{\\}";
+    g_spaces_      = "\\n\\r\\0\\t ";
+    g_special_     = "\\\\\"'#~%\\^&@\\$_";
+    g_server_id_   = "[\\w0-9\\.]+";
+    g_user_id_     = "[\\w0-9_`\\[\\]]+!~[\\w0-9\\.\\-_\\[\\]]+@[\\w0-9\\.\\-_\\[\\]]+";
+    g_message_id_  = "[A-Z]+|[0-9]{3}";
+    g_target_id_   = "[\\*]{1}|[\\w0-9_`\\[\\]]+";
+
+    g_data_ = ":?[\\w" + g_operators_ + g_punctuation_ + g_brackets_ + g_spaces_ + g_special_ + "]+";
+
+    r_server_response_ = "^(:" + g_server_id_ + ") (" + g_message_id_ + ") (" + g_target_id_ + ") (" + g_data_ + ")";
+    r_server_query_    = "^(" + g_message_id_ + ") (" + g_data_ + ")";
+    r_request_         = "^(:" + g_user_id_ + ") (" + g_message_id_ + ") (" + g_target_id_ + ") (" + g_data_ + ")";
+    r_block_remainal_  = "^[^:](" + g_data_ + ")";
 }
 
 ircClient::~ircClient( )
 {
-    if (hooks_)
-        unhook(hooks_);
+    if (log_out_.is_open())
+        log_out_.close();
 }
 
 void ircClient::log(string msg)
@@ -37,77 +56,16 @@ void ircClient::log(string msg)
     if (quiet_)
         return ;
 
-    cout << msg << endl;
+    if (! log_out_.is_open())
+        log_out_.open(exec_log_file_.c_str(), ios::app);
+
+    log_out_ << msg << endl;
 }
 
-/**
-  * hooks [callbacks] management
-  *
-  **/
-
-void ircClient::_add_hook(irc_command_hook* hook, char *cmd_name, int (*callback) (char*,irc_response*, void*))
+void ircClient::log(string prepend, vector<string> lines)
 {
-    if (hook->callback) {
-        if (! hook->next) {
-            hook->next                = new irc_command_hook;
-            hook->next->callback    = 0;
-            hook->next->ircCommand    = 0;
-            hook->next->next        = 0;
-        }
-        _add_hook(hook->next, cmd_name, callback);
-    }
-    else {
-        hook->callback        = callback;
-        hook->ircCommand    = new char[ strlen( cmd_name ) + 1 ];
-
-        strcpy(hook->ircCommand, cmd_name);
-    }
-}
-
-void ircClient::hook_cmd(char* cmd_name, int (*callback) (char *, irc_response*, void*))
-{
-    if (! hooks_) {
-        hooks_             = new irc_command_hook;
-        hooks_->callback   = 0;
-        hooks_->ircCommand = 0;
-        hooks_->next       = 0;
-    }
-
-    _add_hook(hooks_, cmd_name, callback);
-}
-
-void ircClient::unhook(irc_command_hook* cmd_hook)
-{
-    if (cmd_hook->next)
-        // recursivity
-        unhook(cmd_hook->next);
-
-    if (cmd_hook->ircCommand)
-        delete cmd_hook->ircCommand;
-
-    delete cmd_hook;
-    cmd_hook = NULL;
-}
-
-void ircClient::callback(char* irc_command, char* params, irc_response* hostd)
-{
-    irc_command_hook* p;
-
-    if (! hooks_)
-        // no callbacks available
-        return;
-
-    p = hooks_;
-    while (p) {
-        // filter command hooks
-        if (strcmp(p->ircCommand, irc_command) == 0) {
-            // execute callback
-            (*(p->callback)) (params, hostd, this);
-            p = 0;
-        }
-        else
-            p = p->next;
-    }
+    for (vector<string>::iterator l = lines.begin(); l != lines.end(); l++)
+        log(prepend + *l);
 }
 
 /**
@@ -156,14 +114,6 @@ int ircClient::connect(irc_conn_config conf)
 {
     _remote_config(conf);
 
-    stringstream logger;
-    logger << "remote configuration: {"
-           << "host:'" << config_.server << ":" << config_.port << "';"
-           << "user:'" << config_.nick << " " << config_.user << "@" << config_.name << "';"
-           << "}" << endl;
-
-    log(logger.str());
-
     if ((::connect(conn_.irc_socket, (const sockaddr*)& conn_.remote, sizeof(conn_.remote))
         == SOCKET_ERROR)) {
 
@@ -173,8 +123,6 @@ int ircClient::connect(irc_conn_config conf)
         closesocket(conn_.local_socket);
         return 1;
     }
-
-    log("Send authentication data.");
 
     stringstream buf;
     buf << "NICK " << config_.nick.c_str()
@@ -189,6 +137,8 @@ int ircClient::connect(irc_conn_config conf)
 
     // send nick, user & name
     send(conn_.irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+
+    log("[DEBUG] Connection established.");
 
     config_.connected = true;
     return 0;
@@ -247,12 +197,13 @@ int ircClient::reply_loop(string end_msg)
     int  ret_len;
     char buffer[1024];
 
+    vector<string> end_codes;
     if (! end_msg.empty())
-        boost::split(end_codes_, end_msg, boost::is_any_of("|"));
+        boost::split_regex(end_codes, end_msg, boost::regex("\\|"));
 
     hostent* resolv;
     if (! config_.connected) {
-        log("You are not connected !");
+        log("[ERROR] Connection not available.");
         return 1;
     }
 
@@ -260,49 +211,140 @@ int ircClient::reply_loop(string end_msg)
         ret_len = recv(conn_.irc_socket, buffer, 1023, 0 );
 
         if (ret_len == SOCKET_ERROR || ! ret_len)
-            return 1;
+            break;
 
         buffer[ret_len] = '\0';
-        split_response(buffer);
 
-        cout << "GOT: [" << buffer << "]" << endl;
+        // replace CRLF for easier split algorithm.
+        string buf = buffer;
+        vector<string> lines;
+
+        // split into lines
+        boost::algorithm::split_regex(lines, buf, boost::regex("[\\n]+|\\r\\n"));
+
+        stack_response(lines);
 
         if ((bool) end_msg.size()
-            && __u::in_vector<string>(end_msg, end_codes_))
-            return 0;
+            && ! (__u::vector_intersection<string>(treated_msgs_, end_codes)).empty())
+            break;
     }
 
     return 0;
 }
 
-void ircClient::split_response(char* data)
+void ircClient::stack_response(vector<string> lines)
 {
-    char *p;
-    while (p = strstr(data, "\r\n")) {
-        *p = '\0';
-        parse_response(data);
-        data = p + 2;
+    boost::cmatch matches;
+    boost::regex expr_server_response(r_server_response_, boost::regex::perl);
+    boost::regex expr_server_query(r_server_query_, boost::regex::perl);
+    boost::regex expr_request(r_request_, boost::regex::perl);
+    boost::regex expr_block_remainal(r_block_remainal_, boost::regex::perl);
+
+    string lost_data_buf;
+    vector<string> stacked_lines;
+    for (vector<string>::iterator line = lines.begin(); line != lines.end(); line++) {
+
+        __t::message_data_t data;
+        __t::message_type_t type;
+        string              msg    = "";
+        string              code   = "";
+        string              server = "";
+        string              target = "";
+
+        code = "";
+        // determine message type with regular expressions
+        if (regex_match((*line).c_str(), matches, expr_server_response)) {
+            server = matches[1];
+            code   = matches[2];
+            target = matches[3];
+            msg    = matches[4];
+            type   = TYPE_SERVER_RESPONSE;
+        }
+        else if (regex_match((*line).c_str(), matches, expr_server_query)) {
+            code = matches[1];
+            msg  = matches[2];
+            type = TYPE_SERVER_QUERY;
+        }
+        else if (regex_match((*line).c_str(), matches, expr_request)) {
+            server = matches[1];
+            code   = matches[2];
+            target = matches[3];
+            msg    = matches[4];
+            type   = TYPE_REQUEST;
+        }
+        else if (regex_match((*line).c_str(), matches, expr_block_remainal)) {
+            msg  = __u::trim(*line, "\t\r\n");
+            type = TYPE_BLOCK_REMAINAL;
+        }
+        else {
+            msg  = __u::trim(*line, "\t\r\n");
+            type = TYPE_UNKNOWN;
+        }
+
+        data.server  = server;
+        data.code    = code;
+        data.target  = target;
+        data.message = msg;
+        data.type    = type;
+
+        stack_.push(data);
+    }
+
+    // log block of stacked lines
+    process_stack();
+}
+
+void ircClient::process_stack()
+{
+    while (! stack_.empty()) {
+
+        message_data_t current_msg = stack_.front();
+
+        handle(current_msg);
+
+        processed_.push_back(current_msg);
+        stack_.pop();
     }
 }
 
-void ircClient::parse_response(char *data)
+void ircClient::register_callback(string code, __t::callback<ircClient> cb)
 {
-    char            *hostd;
-    char            *cmd;
-    char            *params;
-    char            buffer[514];
-    irc_response    response;
-    irc_user*       users;
-    char            *p;
-    char            *chan_temp;
-    string          message = "";
+    map<string, __t::callback<ircClient> >::iterator i_find = callbacks_.find(code);
+    if (i_find != callbacks_.end())
+        callbacks_.erase(i_find);
 
-    response.target = 0;
+    callbacks_.insert(make_pair(code, cb));
+}
 
-    string reg_notice = "^NOTICE (.+)";
+int ircClient::handle(__t::message_data_t msg)
+{
+    if (msg.code.empty())
+        return 0;
 
-    //cmatch match_irc_resp;
-    //if (regex_match(data, match_irc_resp, "^\\: ([A-Za-z0-9]+) "))
+    treated_msgs_.push_back(msg.code);
+
+    map<string, __t::callback<ircClient> >::iterator i_find = callbacks_.find(msg.code);
+    if (i_find == callbacks_.end())
+        return 1;
+
+    // XXX arguments to callback execution
+    __t::callback<ircClient> handler(i_find->second);
+    if (handler.is_args0()) return handler();
+    else if (handler.is_args1()) return handler("");
+    else if (handler.is_args2()) return handler("", "");
+    else if (handler.is_args3()) return handler("", "", "");
+}
+
+int ircClient::irc_pong()
+{
+    log("[DEBUG] sending PONG to '" + config_.server + "'");
+
+    stringstream buf;
+    buf << "PONG " << config_.server << " :"
+        << "\r\n";
+
+    send(get_connection().irc_socket, buf.str().c_str(), strlen(buf.str().c_str()), 0);
+    return 0;
 }
 
 int ircClient::irc_notice(string target, string msg)

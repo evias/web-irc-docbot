@@ -1,27 +1,11 @@
-/**
- * @file : bootstrap.cpp
- * @package :   eVias' docBot
- * @author :    Grégory Saive
- * @copyright : © 2012 Grégory Saive
- * @license :   GNU/GPL 3.0
- *
- * @brief
- * implementation of the class application, bootstrap the docBot
- * application run. This class configures the session of the user.
- * No matter if the user is a logged in user or not, there will be
- * one instance of this class available for him/her.
- **/
-
 #include "application.hpp"
+#include "bot/bot.hpp"
 
-#include <Wt/Dbo/backend/Postgres>
-#include <Wt/Dbo/Session>
-
-#include "core/models/user_traits.hpp"
+#include <Wt/Dbo/Impl>
 
 using namespace evias::models;
 using namespace evias;
-using namespace web;
+using namespace irc;
 
 application::application(const Wt::WEnvironment& env)
     : Wt::WApplication(env)
@@ -37,9 +21,7 @@ application::application(const Wt::WEnvironment& env)
     model::getSession().mapClass<user_traits::prefs>("user_prefs");
     model::getSession().mapClass<account_traits::account_type>("account_type");
 
-    setTitle("docWeb");
-
-    view_ = evias::interface::create(root());
+    setTitle("docBot");
 }
 
 application::~application()

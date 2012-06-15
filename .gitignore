@@ -24,6 +24,11 @@ web/libwebLib.a
 bot/libbotLib.a
 
 public/docBot.wt
+public/docWeb.wt
+bot/public
+web/public
 
 #vim swap files ignore
 *.swp
+
+public/shared/logs/*.txt
