@@ -36,6 +36,7 @@ namespace evias {
         static bot* pget();
 
         void init();
+        void listen();
         ircClient* get_irc();
 
     private:
