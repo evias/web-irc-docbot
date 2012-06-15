@@ -22,5 +22,8 @@ int main(int argc, char **argv)
     evias::bot::get()
         .init();
 
+    evias::bot::get()
+        .listen();
+
     return Wt::WRun(argc, argv, &createApplication);
 }
